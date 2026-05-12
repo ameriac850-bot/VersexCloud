@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiResponse } from "../_lib/types";
-import { badRequest, getClientIp, getHeader, methodNotAllowed, readJsonBody, setNoStore } from "../_lib/http";
+import { badRequest, getClientIp, getHeader, methodNotAllowed, readJsonBody, sendJson, setNoStore } from "../_lib/http";
 import {
   clearPasswordSetupCookie,
   consumePasswordSetupToken,
@@ -27,7 +27,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const userId = await consumePasswordSetupToken(req);
     if (!userId) {
       res.setHeader("Set-Cookie", clearPasswordSetupCookie());
-      return res.status(401).json({ error: "A verificacao do Discord expirou. Entre com Discord novamente." });
+      return sendJson(res, 401, { error: "A verificacao do Discord expirou. Entre com Discord novamente." });
     }
 
     const sql = getSql();
@@ -56,9 +56,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
       cookies.push(String(sessionHeader));
     }
     res.setHeader("Set-Cookie", cookies);
-    return res.status(200).json({ user });
+    return sendJson(res, 200, { user });
   } catch (error) {
     console.error("password_setup_error", error);
-    return res.status(500).json({ error: "Nao foi possivel salvar a senha agora." });
+    return sendJson(res, 500, { error: "Nao foi possivel salvar a senha agora." });
   }
 }

@@ -5,13 +5,19 @@ export function setNoStore(res: ApiResponse) {
   res.setHeader("X-Content-Type-Options", "nosniff");
 }
 
+export function sendJson(res: ApiResponse, statusCode: number, body: unknown) {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(body));
+}
+
 export function methodNotAllowed(res: ApiResponse, methods: string[]) {
   res.setHeader("Allow", methods.join(", "));
-  return res.status(405).json({ error: "Metodo nao permitido." });
+  return sendJson(res, 405, { error: "Metodo nao permitido." });
 }
 
 export function badRequest(res: ApiResponse, error = "Requisicao invalida.") {
-  return res.status(400).json({ error });
+  return sendJson(res, 400, { error });
 }
 
 export async function readJsonBody(req: ApiRequest) {

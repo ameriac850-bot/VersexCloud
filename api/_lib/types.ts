@@ -6,6 +6,4 @@ export type ApiRequest = IncomingMessage & {
 };
 
 export type ApiResponse = ServerResponse & {
-  status: (statusCode: number) => ApiResponse;
-  json: (body: unknown) => void;
 };

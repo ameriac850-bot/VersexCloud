@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiResponse } from "../_lib/types";
-import { methodNotAllowed, setNoStore } from "../_lib/http";
+import { methodNotAllowed, sendJson, setNoStore } from "../_lib/http";
 import { getCurrentUser } from "../_lib/auth";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -12,12 +12,12 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     const user = await getCurrentUser(req);
     if (!user) {
-      return res.status(401).json({ user: null });
+      return sendJson(res, 401, { user: null });
     }
 
-    return res.status(200).json({ user });
+    return sendJson(res, 200, { user });
   } catch (error) {
     console.error("me_error", error);
-    return res.status(500).json({ error: "Nao foi possivel carregar a sessao." });
+    return sendJson(res, 500, { error: "Nao foi possivel carregar a sessao." });
   }
 }

@@ -127,10 +127,10 @@ export async function createSession(
 }
 
 export async function getCurrentUser(req: ApiRequest): Promise<PublicUser | null> {
-  await ensureSchema();
-
   const token = getSessionCookie(req);
   if (!token) return null;
+
+  await ensureSchema();
 
   const sql = getSql();
   const rows = (await sql`

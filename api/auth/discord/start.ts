@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { ApiRequest, ApiResponse } from "../../_lib/types";
-import { methodNotAllowed, setNoStore } from "../../_lib/http";
+import { methodNotAllowed, sendJson, setNoStore } from "../../_lib/http";
 import { buildDiscordAuthorizeUrl, discordStateCookie } from "../../_lib/discord";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -18,6 +18,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return res.end();
   } catch (error) {
     console.error("discord_start_error", error);
-    return res.status(500).json({ error: "Discord OAuth nao esta configurado." });
+    return sendJson(res, 500, { error: "Discord OAuth nao esta configurado." });
   }
 }

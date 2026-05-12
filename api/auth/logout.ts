@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiResponse } from "../_lib/types";
-import { methodNotAllowed, setNoStore } from "../_lib/http";
+import { methodNotAllowed, sendJson, setNoStore } from "../_lib/http";
 import { clearSessionCookie, revokeCurrentSession } from "../_lib/auth";
 
 export default async function handler(req: ApiRequest, res: ApiResponse) {
@@ -12,9 +12,9 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     await revokeCurrentSession(req);
     res.setHeader("Set-Cookie", clearSessionCookie());
-    return res.status(200).json({ ok: true });
+    return sendJson(res, 200, { ok: true });
   } catch (error) {
     console.error("logout_error", error);
-    return res.status(500).json({ error: "Nao foi possivel sair agora." });
+    return sendJson(res, 500, { error: "Nao foi possivel sair agora." });
   }
 }

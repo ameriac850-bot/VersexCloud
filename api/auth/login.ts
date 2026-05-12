@@ -1,5 +1,5 @@
 import type { ApiRequest, ApiResponse } from "../_lib/types";
-import { badRequest, getClientIp, getHeader, methodNotAllowed, readJsonBody, setNoStore } from "../_lib/http";
+import { badRequest, getClientIp, getHeader, methodNotAllowed, readJsonBody, sendJson, setNoStore } from "../_lib/http";
 import {
   clearLoginFailures,
   createSession,
@@ -32,7 +32,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     const rateKey = hashValue(`${ip}:${identifier}`);
 
     if (await isRateLimited(rateKey)) {
-      return res.status(429).json({ error: "Muitas tentativas. Tente novamente em alguns minutos." });
+      return sendJson(res, 429, { error: "Muitas tentativas. Tente novamente em alguns minutos." });
     }
 
     const sql = getSql();
@@ -60,13 +60,13 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     if (!user?.password_hash || !(await verifyPassword(password, user.password_hash))) {
       await recordLoginFailure(rateKey);
-      return res.status(401).json({ error: "Usuario Discord ou senha incorretos." });
+      return sendJson(res, 401, { error: "Usuario Discord ou senha incorretos." });
     }
 
     await clearLoginFailures(rateKey);
     await createSession(res, user.id, ip, getHeader(req, "user-agent"));
 
-    return res.status(200).json({
+    return sendJson(res, 200, {
       user: {
         id: user.id,
         email: user.email,
@@ -77,6 +77,6 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     });
   } catch (error) {
     console.error("login_error", error);
-    return res.status(500).json({ error: "Nao foi possivel entrar agora." });
+    return sendJson(res, 500, { error: "Nao foi possivel entrar agora." });
   }
 }
