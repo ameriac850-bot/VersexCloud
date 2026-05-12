@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Inter", "SF Pro Text", "Segoe UI", Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+button,
+input {
+  font-family: inherit;
+  letter-spacing: 0;
+}
+
+.post-login-nav a {
+  position: relative;
+  padding-block: 0.25rem;
+  color: rgb(255 255 255 / 0.74);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.post-login-nav a:hover,
+.post-login-nav a:focus-visible {
+  color: rgb(255 255 255 / 0.98);
+}
+
+.post-login-nav a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -0.32rem;
+  width: calc(100% + 0.85rem);
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0),
+    rgb(255 255 255 / 0.78) 32%,
+    rgb(255 255 255 / 0.78) 68%,
+    rgb(255 255 255 / 0)
+  );
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0.38);
+  transform-origin: center;
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+
+.post-login-nav a:hover::after,
+.post-login-nav a:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) scaleX(1);
+}
+
+.post-login-download p {
+  color: rgb(255 255 255 / 0.45);
+}
+
+.post-login-download p:first-child {
+  color: rgb(255 255 255);
+}
+
+.post-login-download .download-subtitle {
+  color: rgb(255 255 255 / 0.72);
+}
+
+.post-login-download button {
+  color: rgb(255 255 255 / 0.85);
+  transition: color 180ms ease;
+}
+
+.post-login-download button:hover,
+.post-login-download button:focus-visible {
+  color: rgb(255 255 255);
+}
+
+.post-login-download > div:first-child > div:first-child {
+  background: rgb(255 255 255);
+  color: rgb(0 0 0);
+}
