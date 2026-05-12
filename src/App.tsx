@@ -1,4 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  getCurrentUser,
+  login as loginRequest,
+  logout as logoutRequest,
+  setSitePassword,
+  startDiscordAuth,
+  type AuthUser,
+} from "./auth";
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 
@@ -115,21 +123,12 @@ const SignOutIcon = ({ className = "" }: IconProps) => (
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type Page = "login" | "register" | "forgot";
-type LoginError = "invalid-email" | "invalid-credentials" | null;
+type LoginError = string | null;
 type CreateVmStatus = "idle" | "creating" | "created" | "error";
-type CreatedVm = {
-  instanceId: string;
-  imageId: string;
-  imageName?: string | null;
-  instanceType: string;
-  region: string;
-  state: string;
-  consoleUrl?: string;
-};
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const BG_URL = "/site-background.png?v=4";
-const LOGO_URL = "/versex-icon-transparent.png?v=3";
+const BG_URL = "/auth-background.png?v=4";
+const LOGO_URL = "/auth-mark.png?v=3";
 const pageIndex: Record<Page, number> = {
   forgot: 0,
   login: 1,
@@ -138,7 +137,6 @@ const pageIndex: Record<Page, number> = {
 
 const inputClass =
   "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none placeholder-transparent focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-colors duration-200";
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const headlineTerms = [
   "lugar",
   "tela",
@@ -153,8 +151,7 @@ const headlineTerms = [
   "rede",
   "momento",
 ];
-const MOONLIGHT_ICON_URL =
-  "https://play-lh.googleusercontent.com/QGBq_X2ewz_3HUR9AUI3NXcOjfVJd-Mf1l66-3D6zMzF-HN81f_KeZ-shqxRE633I3M";
+const MOONLIGHT_ICON_URL = LOGO_URL;
 
 // ─── SHARED SHELL ─────────────────────────────────────────────────────────────
 function PageShell({
@@ -205,7 +202,7 @@ function LoginErrorAlert({ error }: { error: LoginError }) {
       role="alert"
       className="rounded-xl border border-[#ffb8b8] bg-[#fff6f6] px-3 py-3 text-sm text-[#9f1d1d]"
     >
-      {error === "invalid-email" ? "E-mail inválido." : "E-mail ou senha incorretos."}
+      {error}
     </div>
   );
 }
@@ -213,36 +210,44 @@ function LoginErrorAlert({ error }: { error: LoginError }) {
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
 function LoginPage({
   active,
+  notice,
   onGoRegister,
   onGoForgot,
   onLoginSuccess,
   onReset,
 }: {
   active: boolean;
+  notice: string | null;
   onGoRegister: () => void;
   onGoForgot: () => void;
-  onLoginSuccess: () => void;
+  onLoginSuccess: (user: AuthUser) => void;
   onReset: () => void;
 }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<LoginError>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!emailPattern.test(email.trim())) {
-      setLoginError("invalid-email");
+    if (!identifier.trim()) {
+      setLoginError("Informe seu usuário do Discord.");
       return;
     }
 
-    if (email.trim().toLowerCase() === "tester@gmail.com") {
-      onLoginSuccess();
-      return;
-    }
+    setIsSubmitting(true);
+    setLoginError(null);
 
-    setLoginError("invalid-credentials");
+    try {
+      const user = await loginRequest(identifier, password);
+      onLoginSuccess(user);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Não foi possível entrar agora.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -255,19 +260,44 @@ function LoginPage({
             Entrar na conta
           </h1>
           <p className="text-white/40 text-sm mb-8">
-            Entre na sua conta para acessar seus workspaces.
+            Entre com Discord ou com seu usuário Discord e senha.
           </p>
 
-          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            {notice && (
+              <div
+                role="status"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/65"
+              >
+                {notice}
+              </div>
+            )}
             <LoginErrorAlert error={loginError} />
 
+            <button
+              type="button"
+              onClick={startDiscordAuth}
+              className="w-full rounded-full bg-[#5865f2] py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#4752c4] active:scale-[0.98]"
+            >
+              Entrar com Discord
+            </button>
+
+            <div className="flex items-center gap-3 text-xs uppercase text-white/25">
+              <span className="h-px flex-1 bg-white/10" />
+              ou
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-white/70">E-mail</label>
+              <label className="text-sm font-medium text-white/70">Usuário Discord</label>
               <input
-                type="email"
-                value={email}
+                type="text"
+                name="username"
+                autoComplete="username"
+                required
+                value={identifier}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  setIdentifier(e.target.value);
                   setLoginError(null);
                 }}
                 className={inputClass}
@@ -288,6 +318,10 @@ function LoginPage({
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
+                  required
+                  minLength={10}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -307,14 +341,15 @@ function LoginPage({
 
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full bg-white text-black rounded-full py-3 text-sm font-semibold hover:bg-white/90 active:scale-[0.98] transition-all duration-200 mt-1"
             >
-              Entrar
+              {isSubmitting ? "Entrando..." : "Entrar"}
             </button>
           </form>
 
           <p className="text-sm text-white/30 mt-6">
-            Ainda não tem conta?{" "}
+            Ainda não registrou sua senha?{" "}
             <button
               onClick={onGoRegister}
               className="font-semibold text-white hover:text-white/60 transition duration-200 cursor-pointer bg-transparent border-none p-0"
@@ -342,14 +377,6 @@ function RegisterPage({
   onGoLogin: () => void;
   onReset: () => void;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [agreed, setAgreed] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => e.preventDefault();
-
   return (
     <PageShell active={active}>
       <Logo onClick={onReset} />
@@ -360,80 +387,16 @@ function RegisterPage({
             Criar conta
           </h1>
           <p className="text-white/40 text-sm mb-8">
-            Crie sua conta para começar a usar a Versex.
+            A conta é liberada apenas para membros do servidor Discord.
           </p>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-white/70">Nome</label>
-              <input
-                type="text"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-white/70">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-white/70">Senha</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={inputClass + " pr-10"}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition duration-200"
-                >
-                  {showPassword ? <EyeIcon /> : <EyeOffIcon />}
-                </button>
-              </div>
-              <p className="text-xs text-white/25 mt-0.5">
-                Mínimo 8 caracteres, com maiúscula, minúscula e número.
-              </p>
-            </div>
-
-            <div className="flex items-start gap-2.5">
-              <input
-                id="terms"
-                type="checkbox"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-0.5 w-4 h-4 shrink-0 cursor-pointer accent-white"
-              />
-              <label htmlFor="terms" className="text-sm text-white/40 leading-snug cursor-pointer">
-                Concordo com os{" "}
-                <a href="#" className="underline text-white/70 hover:text-white transition duration-200">
-                  Termos de Serviço
-                </a>{" "}
-                e reconheço a{" "}
-                <a href="#" className="underline text-white/70 hover:text-white transition duration-200">
-                  Política de Privacidade
-                </a>{" "}
-                da Versex.
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-white text-black rounded-full py-3 text-sm font-semibold hover:bg-white/90 active:scale-[0.98] transition-all duration-200 mt-1"
-            >
-              Criar conta
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={startDiscordAuth}
+            className="w-full rounded-full bg-[#5865f2] py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#4752c4] active:scale-[0.98]"
+          >
+            Continuar com Discord
+          </button>
 
           <p className="text-sm text-white/30 mt-6">
             Já tem uma conta?{" "}
@@ -462,23 +425,6 @@ function ForgotPasswordPage({
   active: boolean;
   onGoLogin: () => void;
 }) {
-  const [email, setEmail] = useState("");
-  const [emailError, setEmailError] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!emailPattern.test(email.trim())) {
-      setEmailError(true);
-      setSent(false);
-      return;
-    }
-
-    setEmailError(false);
-    setSent(true);
-  };
-
   return (
     <PageShell active={active}>
       <Logo onClick={onGoLogin} />
@@ -490,50 +436,16 @@ function ForgotPasswordPage({
             senha?
           </h1>
           <p className="mb-10 text-[15px] leading-snug text-white/40">
-            Digite o e-mail da sua conta e enviaremos um link para
-            você redefinir a senha.
+            Use o Discord para entrar novamente. A verificação da guilda continua obrigatória.
           </p>
 
-          <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
-            {emailError && (
-              <div
-                role="alert"
-                className="rounded-xl border border-[#ffb8b8] bg-[#fff6f6] px-3 py-3 text-sm text-[#9f1d1d]"
-              >
-                E-mail inválido.
-              </div>
-            )}
-
-            {sent && (
-              <div
-                role="status"
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white/60"
-              >
-                Link de redefinição enviado.
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-white/70">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setEmailError(false);
-                  setSent(false);
-                }}
-                className={inputClass}
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full rounded-full bg-white py-3 text-sm font-semibold text-black transition-all duration-200 hover:bg-white/90 active:scale-[0.98]"
-            >
-              Continuar
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={startDiscordAuth}
+            className="w-full rounded-full bg-[#5865f2] py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#4752c4] active:scale-[0.98]"
+          >
+            Entrar com Discord
+          </button>
 
           <button
             type="button"
@@ -552,7 +464,134 @@ function ForgotPasswordPage({
   );
 }
 
-function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
+function PasswordSetupPage({
+  onPasswordCreated,
+}: {
+  onPasswordCreated: (user: AuthUser) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [setupError, setSetupError] = useState<LoginError>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (password !== confirmPassword) {
+      setSetupError("As senhas não conferem.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSetupError(null);
+
+    try {
+      const user = await setSitePassword(password);
+      onPasswordCreated(user);
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : "Não foi possível salvar a senha agora.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="relative min-h-screen w-full overflow-hidden"
+      style={{
+        backgroundImage: `url('${BG_URL}')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#0a0a0a",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="relative z-10 flex min-h-screen flex-col px-8 py-8">
+        <Logo onClick={startDiscordAuth} />
+
+        <div className="flex flex-1 items-center justify-center">
+          <div className="w-full max-w-[420px]">
+            <h1 className="text-[2.5rem] font-light leading-tight tracking-normal text-white">
+              Criar senha
+            </h1>
+            <p className="mb-8 mt-2 text-sm text-white/40">
+              Discord verificado. Crie sua senha para entrar direto depois.
+            </p>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <LoginErrorAlert error={setupError} />
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-white/70">Senha</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={10}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setSetupError(null);
+                    }}
+                    className={inputClass + " pr-10"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition duration-200 hover:text-white/70"
+                  >
+                    {showPassword ? <EyeIcon /> : <EyeOffIcon />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-white/70">Confirmar senha</label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="confirm-password"
+                  autoComplete="new-password"
+                  required
+                  minLength={10}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setSetupError(null);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+
+              <p className="text-xs text-white/25">
+                Mínimo 10 caracteres, com maiúscula, minúscula e número.
+              </p>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-full bg-white py-3 text-sm font-semibold text-black transition-all duration-200 hover:bg-white/90 active:scale-[0.98]"
+              >
+                {isSubmitting ? "Salvando..." : "Salvar senha"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PostLoginHome({
+  user,
+  onSignOut,
+}: {
+  user: AuthUser;
+  onSignOut: () => void;
+}) {
   const headlineSuffix = ".";
   const headlinePrefix = "Rode aplicativos em qualquer dispositivo, em qualquer ";
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -564,7 +603,6 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
   const [desktopMinimized, setDesktopMinimized] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useState(false);
   const [createVmStatus, setCreateVmStatus] = useState<CreateVmStatus>("idle");
-  const [createdVm, setCreatedVm] = useState<CreatedVm | null>(null);
   const [createVmMessage, setCreateVmMessage] = useState("");
 
   const vmStatusLabel =
@@ -588,20 +626,9 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
 
     setCreateVmStatus("creating");
     setCreateVmMessage("Preparando ambiente de demonstracao...");
-    setCreatedVm(null);
 
     await new Promise((resolve) => window.setTimeout(resolve, 850));
 
-    const demoVm: CreatedVm = {
-      instanceId: "demo-vercel",
-      imageId: "static-preview",
-      imageName: "Versex Preview",
-      instanceType: "g4dn.xlarge",
-      region: "sa-east-1",
-      state: "ready",
-    };
-
-    setCreatedVm(demoVm);
     setCreateVmStatus("created");
     setCreateVmMessage("Ambiente demonstrativo pronto para hospedagem estatica.");
   };
@@ -703,8 +730,10 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
                     <UserAvatarIcon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold leading-5">Zak</p>
-                    <p className="truncate text-sm leading-5 text-white/45">z75572702@gmail.com</p>
+                    <p className="truncate text-sm font-semibold leading-5">{user.name}</p>
+                    <p className="truncate text-sm leading-5 text-white/45">
+                      {user.discordUsername ? `@${user.discordUsername}` : user.email}
+                    </p>
                   </div>
                 </div>
 
@@ -909,7 +938,7 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
                             {vmStatusLabel}
                           </span>
                           <h2 className="mt-5 text-2xl font-semibold tracking-normal text-slate-950">
-                            Tester · Versex
+                            Workspace Versex
                           </h2>
                           <p className="mt-2 max-w-[430px] text-sm leading-6 text-slate-500">
                             Um desktop Windows limpo, pronto para abrir seus apps na nuvem.
@@ -949,16 +978,6 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
                           }`}
                         >
                           <p>{createVmMessage}</p>
-                          {createdVm?.consoleUrl && (
-                            <a
-                              href={createdVm.consoleUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-1 inline-block font-semibold underline underline-offset-2"
-                            >
-                              Abrir no console AWS
-                            </a>
-                          )}
                         </div>
                       )}
                     </div>
@@ -1028,7 +1047,46 @@ function PostLoginHome({ onSignOut }: { onSignOut: () => void }) {
 
 export default function App() {
   const [page, setPage] = useState<Page>("login");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const authState = params.get("auth");
+
+    if (authState === "not-in-guild") {
+      setAuthNotice("Você precisa estar no servidor Discord autorizado para acessar.");
+      setPage("login");
+    } else if (authState === "discord-error") {
+      setAuthNotice("Não foi possível validar seu Discord agora.");
+      setPage("login");
+    } else if (authState === "password-setup") {
+      setNeedsPasswordSetup(true);
+    }
+
+    if (authState) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    getCurrentUser()
+      .then((user) => {
+        if (isMounted) setCurrentUser(user);
+      })
+      .catch(() => {
+        if (isMounted) setCurrentUser(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsCheckingSession(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const navigate = (to: Page) => {
     setPage(to);
@@ -1036,17 +1094,48 @@ export default function App() {
 
   const reset = () => navigate("login");
 
+  const handleSignOut = async () => {
+    await logoutRequest().catch(() => undefined);
+    setCurrentUser(null);
+    setNeedsPasswordSetup(false);
+    setPage("login");
+  };
+
   const showLogin = page === "login";
   const showRegister = page === "register";
   const showForgot = page === "forgot";
 
-  if (isLoggedIn) {
+  if (isCheckingSession) {
+    return (
+      <div
+        className="grid min-h-screen place-items-center bg-[#0a0a0a] text-sm text-white/50"
+        style={{
+          backgroundImage: `url('${BG_URL}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        Carregando...
+      </div>
+    );
+  }
+
+  if (needsPasswordSetup) {
+    return (
+      <PasswordSetupPage
+        onPasswordCreated={(user) => {
+          setCurrentUser(user);
+          setNeedsPasswordSetup(false);
+        }}
+      />
+    );
+  }
+
+  if (currentUser) {
     return (
       <PostLoginHome
-        onSignOut={() => {
-          setIsLoggedIn(false);
-          setPage("login");
-        }}
+        user={currentUser}
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -1083,9 +1172,13 @@ export default function App() {
           />
           <LoginPage
             active={showLogin}
+            notice={authNotice}
             onGoRegister={() => navigate("register")}
             onGoForgot={() => navigate("forgot")}
-            onLoginSuccess={() => setIsLoggedIn(true)}
+            onLoginSuccess={(user) => {
+              setAuthNotice(null);
+              setCurrentUser(user);
+            }}
             onReset={reset}
           />
           <RegisterPage
